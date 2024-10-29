@@ -1,4 +1,4 @@
-{ "Abby": [
+{ "Music for Abby": [
     {
       "title": "Alphabet_Serenade.mp3",
       "path": "Abby/Alphabet_Serenade.mp3"
@@ -252,7 +252,7 @@
       "path": "Abby/You_are_my_sunshine_8.mp3"
     }
   ],
-  "medival": [
+  "Songs that Sound Medieval": [
     {
       "title": "Dragon's_Anthem.mp3",
       "path": "medival/Dragon's_Anthem.mp3"
@@ -266,7 +266,7 @@
       "path": "medival/Knights_of_the_Night2.mp3"
     }
   ],
-  "mlearn": [
+  "Songs For Learning with Fun": [
     {
       "title": "ajitvsTom.mp3",
       "path": "mlearn/ajitvsTom.mp3"
@@ -376,7 +376,7 @@
       "path": "mlearn/UQR_vs_CQR.mp3"
     }
   ],
-  "rmusic": [
+  "Random Songs": [
     {
       "title": "ABC_Rap.mp3",
       "path": "rmusic/ABC_Rap.mp3"
