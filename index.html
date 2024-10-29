@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Audio Player with JSON Loading</title>
     <style>
+        /* Previous styles remain the same */
         :root {
             --primary-color: #2563eb;
             --secondary-color: #1e40af;
@@ -102,7 +103,7 @@
             border-radius: 8px;
         }
 
-        .play-btn, .prev-btn, .next-btn {
+        .play-btn, .prev-btn, .next-btn, .shuffle-btn {
             background: var(--primary-color);
             color: white;
             border: none;
@@ -112,12 +113,29 @@
             transition: background-color 0.2s;
         }
 
-        .prev-btn, .next-btn {
+        .prev-btn, .next-btn, .shuffle-btn {
             padding: 12px 16px;
         }
 
-        .play-btn:hover, .prev-btn:hover, .next-btn:hover {
+        .play-btn:hover, .prev-btn:hover, .next-btn:hover, .shuffle-btn:hover {
             background: var(--secondary-color);
+        }
+
+        .shuffle-btn.active {
+            background: var(--secondary-color);
+            position: relative;
+        }
+
+        .shuffle-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: 4px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 4px;
+            background: white;
+            border-radius: 50%;
         }
 
         .progress-container {
@@ -190,6 +208,7 @@
         <div id="albums-container"></div>
 
         <div class="controls">
+            <button class="shuffle-btn" title="Toggle shuffle">🔀</button>
             <button class="prev-btn">⏮</button>
             <button class="play-btn">▶</button>
             <button class="next-btn">⏭</button>
@@ -212,6 +231,7 @@
         const playBtn = document.querySelector('.play-btn');
         const prevBtn = document.querySelector('.prev-btn');
         const nextBtn = document.querySelector('.next-btn');
+        const shuffleBtn = document.querySelector('.shuffle-btn');
         const progressBar = document.getElementById('progress-bar');
         const progressContainer = document.getElementById('progress-container');
         const timeDisplay = document.querySelector('.time-display');
@@ -221,8 +241,38 @@
 
         let currentTrack = null;
         let isPlaying = false;
+        let isShuffled = false;
         let tracks = [];
+        let shuffledTracks = [];
         let currentTrackIndex = -1;
+
+        // Shuffle functionality
+        shuffleBtn.addEventListener('click', () => {
+            isShuffled = !isShuffled;
+            shuffleBtn.classList.toggle('active');
+            
+            if (isShuffled) {
+                // Create shuffled array
+                shuffledTracks = [...tracks]
+                    .map(value => ({ value, sort: Math.random() }))
+                    .sort((a, b) => a.sort - b.sort)
+                    .map(({ value }) => value);
+                
+                // If currently playing, find the current track in shuffled array
+                if (currentTrackIndex !== -1) {
+                    const currentTrack = tracks[currentTrackIndex];
+                    currentTrackIndex = shuffledTracks.findIndex(track => 
+                        track.path === currentTrack.path);
+                }
+            } else {
+                // If currently playing, find the current track in normal array
+                if (currentTrackIndex !== -1) {
+                    const currentTrack = shuffledTracks[currentTrackIndex];
+                    currentTrackIndex = tracks.findIndex(track => 
+                        track.path === currentTrack.path);
+                }
+            }
+        });
 
         // Load the JSON data
         fetch('music_data.json')
@@ -245,18 +295,15 @@
                         <div class="group-meta">${albumTracks.length} tracks</div>
                     `;
 
-                    // Toggle group expansion
                     headerDiv.addEventListener('click', () => {
                         groupDiv.classList.toggle('expanded');
                         const icon = headerDiv.querySelector('.toggle-icon');
                         icon.textContent = groupDiv.classList.contains('expanded') ? '▼' : '▶';
                     });
 
-                    // Create playlist
                     const playlistUl = document.createElement('ul');
                     playlistUl.classList.add('playlist');
 
-                    // Add tracks to global tracks array and create list items
                     albumTracks.forEach(track => {
                         tracks.push({
                             title: track.title,
@@ -272,7 +319,15 @@
                         `;
 
                         trackLi.addEventListener('click', () => {
-                            loadTrack(tracks.length - 1);
+                            const clickedIndex = parseInt(trackLi.getAttribute('data-index'));
+                            if (isShuffled) {
+                                // Find the track in shuffled array
+                                currentTrackIndex = shuffledTracks.findIndex(track => 
+                                    track === tracks[clickedIndex]);
+                            } else {
+                                currentTrackIndex = clickedIndex;
+                            }
+                            loadTrack(currentTrackIndex);
                             playTrack();
                         });
 
@@ -305,13 +360,13 @@
         });
 
         nextBtn.addEventListener('click', () => {
-            if (currentTrackIndex < tracks.length - 1) {
+            const trackList = isShuffled ? shuffledTracks : tracks;
+            if (currentTrackIndex < trackList.length - 1) {
                 loadTrack(currentTrackIndex + 1);
                 playTrack();
             }
         });
 
-        // Progress bar
         progressContainer.addEventListener('click', (e) => {
             const clickPosition = e.offsetX / progressContainer.offsetWidth;
             audioPlayer.currentTime = clickPosition * audioPlayer.duration;
@@ -323,14 +378,13 @@
             timeDisplay.textContent = `${formatTime(audioPlayer.currentTime)} / ${formatTime(audioPlayer.duration)}`;
         });
 
-        // Volume control
         volumeSlider.addEventListener('input', (e) => {
             audioPlayer.volume = e.target.value / 100;
         });
 
-        // Track ended
         audioPlayer.addEventListener('ended', () => {
-            if (currentTrackIndex < tracks.length - 1) {
+            const trackList = isShuffled ? shuffledTracks : tracks;
+            if (currentTrackIndex < trackList.length - 1) {
                 loadTrack(currentTrackIndex + 1);
                 playTrack();
             } else {
@@ -342,14 +396,17 @@
 
         function loadTrack(index) {
             currentTrackIndex = index;
-            const track = tracks[index];
+            const trackList = isShuffled ? shuffledTracks : tracks;
+            const track = trackList[index];
             audioPlayer.src = track.path;
             updateTrackInfo(track.title, track.group);
             
             // Update playing status in playlist
             document.querySelectorAll('.playlist li').forEach(li => {
                 li.classList.remove('playing');
-                if (li.getAttribute('data-index') === String(index)) {
+                const liIndex = parseInt(li.getAttribute('data-index'));
+                const currentTrack = trackList[currentTrackIndex];
+                if (tracks[liIndex].path === currentTrack.path) {
                     li.classList.add('playing');
                 }
             });
