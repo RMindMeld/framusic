@@ -1,13 +1,4 @@
-{
-  ".git": [],
-  "hooks": [],
-  "info": [],
-  "objects": [],
-  "pack": [],
-  "refs": [],
-  "heads": [],
-  "tags": [],
-  "Abby": [
+{ "Abby": [
     {
       "title": "Alphabet_Serenade.mp3",
       "path": "Abby/Alphabet_Serenade.mp3"
