@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audio Player with Grouped Playlists</title>
+    <title>Audio Player with JSON Loading</title>
     <style>
         :root {
             --primary-color: #2563eb;
@@ -187,53 +187,7 @@
             <span class="current-track-group"></span>
         </div>
         
-        <div id="playlist-container">
-            <!-- Album 1 -->
-            <div class="playlist-group expanded">
-                <div class="group-header">
-                    <div class="group-title">
-                        <span class="toggle-icon">▼</span>
-                        Album One
-                    </div>
-                    <div class="group-meta">2023 • 3 tracks</div>
-                </div>
-                <ul class="playlist">
-                    <li data-src="/path/to/album1/song1.mp3" data-group="Album One">
-                        <span class="play-icon">▶</span>
-                        <span>Track 1</span>
-                    </li>
-                    <li data-src="/path/to/album1/song2.mp3" data-group="Album One">
-                        <span class="play-icon">▶</span>
-                        <span>Track 2</span>
-                    </li>
-                    <li data-src="/path/to/album1/song3.mp3" data-group="Album One">
-                        <span class="play-icon">▶</span>
-                        <span>Track 3</span>
-                    </li>
-                </ul>
-            </div>
-
-            <!-- Album 2 -->
-            <div class="playlist-group">
-                <div class="group-header">
-                    <div class="group-title">
-                        <span class="toggle-icon">▶</span>
-                        Album Two
-                    </div>
-                    <div class="group-meta">2024 • 2 tracks</div>
-                </div>
-                <ul class="playlist">
-                    <li data-src="/path/to/album2/song1.mp3" data-group="Album Two">
-                        <span class="play-icon">▶</span>
-                        <span>Track 1</span>
-                    </li>
-                    <li data-src="/path/to/album2/song2.mp3" data-group="Album Two">
-                        <span class="play-icon">▶</span>
-                        <span>Track 2</span>
-                    </li>
-                </ul>
-            </div>
-        </div>
+        <div id="albums-container"></div>
 
         <div class="controls">
             <button class="prev-btn">⏮</button>
@@ -267,89 +221,159 @@
 
         let currentTrack = null;
         let isPlaying = false;
+        let tracks = [];
+        let currentTrackIndex = -1;
 
-        // Group toggle functionality
-        document.addEventListener('DOMContentLoaded', function() {
-            fetch('music_data.json')
-                .then(response => response.json())
-                .then(data => {
-                    const container = document.getElementById('albums-container');
-                    Object.keys(data).forEach(albumTitle => {
-                        const album = data[albumTitle];
-                        const groupDiv = document.createElement('div');
-                        groupDiv.classList.add('playlist-group');
+        // Load the JSON data
+        fetch('music_data.json')
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('albums-container');
+                
+                // Create album groups
+                Object.entries(data).forEach(([albumTitle, albumTracks]) => {
+                    const groupDiv = document.createElement('div');
+                    groupDiv.classList.add('playlist-group');
 
-                        const headerDiv = document.createElement('div');
-                        headerDiv.classList.add('group-header');
-                        headerDiv.innerHTML = `
-                            <div class="group-title">
-                                <span class="toggle-icon">▶</span>
-                                ${albumTitle}
-                            </div>
-                            <div class="group-meta">${album.length} tracks</div>
-                        `;
-                        headerDiv.addEventListener('click', function() {
-                            groupDiv.classList.toggle('expanded');
-                            const icon = headerDiv.querySelector('.toggle-icon');
-                            icon.textContent = groupDiv.classList.contains('expanded') ? '▼' : '▶';
-                        });
+                    const headerDiv = document.createElement('div');
+                    headerDiv.classList.add('group-header');
+                    headerDiv.innerHTML = `
+                        <div class="group-title">
+                            <span class="toggle-icon">▶</span>
+                            ${albumTitle}
+                        </div>
+                        <div class="group-meta">${albumTracks.length} tracks</div>
+                    `;
 
-                        const playlistUl = document.createElement('ul');
-                        playlistUl.classList.add('playlist');
-                        album.forEach(track => {
-                            const trackLi = document.createElement('li');
-                            trackLi.setAttribute('data-src', track.path);
-                            trackLi.setAttribute('data-group', albumTitle);
-                            trackLi.innerHTML = `
-                                <span class="play-icon">▶</span>
-                                <span>${track.title}</span>
-                            `;
-                            trackLi.addEventListener('click', function() {
-                                playTrack(track.path);
-                            });
-                            playlistUl.appendChild(trackLi);
-                        });
-
-                        groupDiv.appendChild(headerDiv);
-                        groupDiv.appendChild(playlistUl);
-                        container.appendChild(groupDiv);
+                    // Toggle group expansion
+                    headerDiv.addEventListener('click', () => {
+                        groupDiv.classList.toggle('expanded');
+                        const icon = headerDiv.querySelector('.toggle-icon');
+                        icon.textContent = groupDiv.classList.contains('expanded') ? '▼' : '▶';
                     });
+
+                    // Create playlist
+                    const playlistUl = document.createElement('ul');
+                    playlistUl.classList.add('playlist');
+
+                    // Add tracks to global tracks array and create list items
+                    albumTracks.forEach(track => {
+                        tracks.push({
+                            title: track.title,
+                            path: track.path,
+                            group: albumTitle
+                        });
+
+                        const trackLi = document.createElement('li');
+                        trackLi.setAttribute('data-index', tracks.length - 1);
+                        trackLi.innerHTML = `
+                            <span class="play-icon">▶</span>
+                            <span>${track.title}</span>
+                        `;
+
+                        trackLi.addEventListener('click', () => {
+                            loadTrack(tracks.length - 1);
+                            playTrack();
+                        });
+
+                        playlistUl.appendChild(trackLi);
+                    });
+
+                    groupDiv.appendChild(headerDiv);
+                    groupDiv.appendChild(playlistUl);
+                    container.appendChild(groupDiv);
                 });
-
-            const audioPlayer = document.getElementById('audio-player');
-            const timeDisplay = document.getElementById('time-display');
-
-            audioPlayer.addEventListener('timeupdate', function() {
-                const currentTime = audioPlayer.currentTime;
-                const duration = audioPlayer.duration;
-                timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
             });
 
-            audioPlayer.addEventListener('ended', nextTrack);
-
-            function playTrack(src) {
-                audioPlayer.src = src;
-                audioPlayer.play();
+        // Player controls
+        playBtn.addEventListener('click', () => {
+            if (currentTrackIndex === -1 && tracks.length > 0) {
+                loadTrack(0);
             }
-
-            function nextTrack() {
-                // Implement logic to play the next track
-            }
-
-            function formatTime(seconds) {
-                if (isNaN(seconds)) return '0:00';
-                
-                const minutes = Math.floor(seconds / 60);
-                const remainingSeconds = Math.floor(seconds % 60);
-                return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+            if (isPlaying) {
+                pauseTrack();
+            } else {
+                playTrack();
             }
         });
 
-        audioPlayer.addEventListener('ended', nextTrack);
+        prevBtn.addEventListener('click', () => {
+            if (currentTrackIndex > 0) {
+                loadTrack(currentTrackIndex - 1);
+                playTrack();
+            }
+        });
+
+        nextBtn.addEventListener('click', () => {
+            if (currentTrackIndex < tracks.length - 1) {
+                loadTrack(currentTrackIndex + 1);
+                playTrack();
+            }
+        });
+
+        // Progress bar
+        progressContainer.addEventListener('click', (e) => {
+            const clickPosition = e.offsetX / progressContainer.offsetWidth;
+            audioPlayer.currentTime = clickPosition * audioPlayer.duration;
+        });
+
+        audioPlayer.addEventListener('timeupdate', () => {
+            const progress = (audioPlayer.currentTime / audioPlayer.duration) * 100;
+            progressBar.style.width = `${progress}%`;
+            timeDisplay.textContent = `${formatTime(audioPlayer.currentTime)} / ${formatTime(audioPlayer.duration)}`;
+        });
+
+        // Volume control
+        volumeSlider.addEventListener('input', (e) => {
+            audioPlayer.volume = e.target.value / 100;
+        });
+
+        // Track ended
+        audioPlayer.addEventListener('ended', () => {
+            if (currentTrackIndex < tracks.length - 1) {
+                loadTrack(currentTrackIndex + 1);
+                playTrack();
+            } else {
+                pauseTrack();
+                currentTrackIndex = -1;
+                updateTrackInfo('No track selected', '');
+            }
+        });
+
+        function loadTrack(index) {
+            currentTrackIndex = index;
+            const track = tracks[index];
+            audioPlayer.src = track.path;
+            updateTrackInfo(track.title, track.group);
+            
+            // Update playing status in playlist
+            document.querySelectorAll('.playlist li').forEach(li => {
+                li.classList.remove('playing');
+                if (li.getAttribute('data-index') === String(index)) {
+                    li.classList.add('playing');
+                }
+            });
+        }
+
+        function playTrack() {
+            audioPlayer.play();
+            isPlaying = true;
+            playBtn.textContent = '⏸';
+        }
+
+        function pauseTrack() {
+            audioPlayer.pause();
+            isPlaying = false;
+            playBtn.textContent = '▶';
+        }
+
+        function updateTrackInfo(title, group) {
+            currentTrackTitle.textContent = title;
+            currentTrackGroup.textContent = group;
+        }
 
         function formatTime(seconds) {
             if (isNaN(seconds)) return '0:00';
-            
             const minutes = Math.floor(seconds / 60);
             const remainingSeconds = Math.floor(seconds % 60);
             return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
