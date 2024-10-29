@@ -1,34 +1,391 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Static Site with Fetch</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Player with Grouped Playlists</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --text-color: #1f2937;
+            --bg-color: #f3f4f6;
+            --group-bg: #e5e7eb;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .player-container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        .playlist-group {
+            margin: 20px 0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .group-header {
+            background: var(--group-bg);
+            padding: 12px 16px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+
+        .group-header:hover {
+            background: #d1d5db;
+        }
+
+        .group-title {
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .group-meta {
+            font-size: 0.9rem;
+            color: #6b7280;
+        }
+
+        .playlist {
+            margin: 0;
+            list-style: none;
+            padding: 0;
+            display: none;
+        }
+
+        .playlist-group.expanded .playlist {
+            display: block;
+        }
+
+        .playlist li {
+            padding: 12px 16px 12px 36px;
+            background: white;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid var(--bg-color);
+        }
+
+        .playlist li:hover {
+            background: var(--bg-color);
+        }
+
+        .playlist li.playing {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin: 20px 0;
+            padding: 16px;
+            background: var(--bg-color);
+            border-radius: 8px;
+        }
+
+        .play-btn, .prev-btn, .next-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .prev-btn, .next-btn {
+            padding: 12px 16px;
+        }
+
+        .play-btn:hover, .prev-btn:hover, .next-btn:hover {
+            background: var(--secondary-color);
+        }
+
+        .progress-container {
+            flex-grow: 1;
+            background: white;
+            height: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .progress-bar {
+            background: var(--primary-color);
+            height: 100%;
+            border-radius: 4px;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        .time-display {
+            font-size: 0.9rem;
+            min-width: 100px;
+            text-align: center;
+        }
+
+        .volume-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .volume-slider {
+            width: 100px;
+        }
+
+        .track-info {
+            position: sticky;
+            top: 0;
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 2px 4px rgb(0 0 0 / 0.1);
+        }
+
+        .current-track-title {
+            font-weight: 600;
+        }
+
+        .current-track-group {
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+    </style>
 </head>
 <body>
-  <h1>Data from JSON File</h1>
-  <div id="data-container"></div>
+    <div class="player-container">
+        <h2>Audio Player</h2>
+        
+        <audio id="audio-player"></audio>
 
-  <script>
-    window.addEventListener('DOMContentLoaded', () => {
-      fetch('./data.json')
-        .then(response => response.json())
-        .then(data => {
-          const container = document.getElementById('data-container');
-          data.forEach(item => {
-            const p = document.createElement('p');
-            p.textContent = item.name;
-            container.appendChild(p);
-          });
-        })
-        .catch(error => {
-          console.error('Error:', error);
-          const container = document.getElementById('data-container');
-          const errorMessage = document.createElement('p');
-          errorMessage.textContent = 'Error loading data from JSON file.';
-          container.appendChild(errorMessage);
+        <div class="track-info">
+            <span class="current-track-title">No track selected</span>
+            <span class="current-track-group"></span>
+        </div>
+        
+        <div id="playlist-container">
+            <!-- Album 1 -->
+            <div class="playlist-group expanded">
+                <div class="group-header">
+                    <div class="group-title">
+                        <span class="toggle-icon">▼</span>
+                        Album One
+                    </div>
+                    <div class="group-meta">2023 • 3 tracks</div>
+                </div>
+                <ul class="playlist">
+                    <li data-src="/path/to/album1/song1.mp3" data-group="Album One">
+                        <span class="play-icon">▶</span>
+                        <span>Track 1</span>
+                    </li>
+                    <li data-src="/path/to/album1/song2.mp3" data-group="Album One">
+                        <span class="play-icon">▶</span>
+                        <span>Track 2</span>
+                    </li>
+                    <li data-src="/path/to/album1/song3.mp3" data-group="Album One">
+                        <span class="play-icon">▶</span>
+                        <span>Track 3</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Album 2 -->
+            <div class="playlist-group">
+                <div class="group-header">
+                    <div class="group-title">
+                        <span class="toggle-icon">▶</span>
+                        Album Two
+                    </div>
+                    <div class="group-meta">2024 • 2 tracks</div>
+                </div>
+                <ul class="playlist">
+                    <li data-src="/path/to/album2/song1.mp3" data-group="Album Two">
+                        <span class="play-icon">▶</span>
+                        <span>Track 1</span>
+                    </li>
+                    <li data-src="/path/to/album2/song2.mp3" data-group="Album Two">
+                        <span class="play-icon">▶</span>
+                        <span>Track 2</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="prev-btn">⏮</button>
+            <button class="play-btn">▶</button>
+            <button class="next-btn">⏭</button>
+            
+            <div class="time-display">0:00 / 0:00</div>
+            
+            <div class="progress-container" id="progress-container">
+                <div class="progress-bar" id="progress-bar"></div>
+            </div>
+            
+            <div class="volume-container">
+                <span>🔊</span>
+                <input type="range" class="volume-slider" min="0" max="100" value="100">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const audioPlayer = document.getElementById('audio-player');
+        const playBtn = document.querySelector('.play-btn');
+        const prevBtn = document.querySelector('.prev-btn');
+        const nextBtn = document.querySelector('.next-btn');
+        const progressBar = document.getElementById('progress-bar');
+        const progressContainer = document.getElementById('progress-container');
+        const timeDisplay = document.querySelector('.time-display');
+        const volumeSlider = document.querySelector('.volume-slider');
+        const currentTrackTitle = document.querySelector('.current-track-title');
+        const currentTrackGroup = document.querySelector('.current-track-group');
+
+        let currentTrack = null;
+        let isPlaying = false;
+
+        // Group toggle functionality
+        document.querySelectorAll('.group-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const group = header.parentElement;
+                const toggleIcon = header.querySelector('.toggle-icon');
+                group.classList.toggle('expanded');
+                toggleIcon.textContent = group.classList.contains('expanded') ? '▼' : '▶';
+            });
         });
-    });
-  </script>
+
+        // Get all tracks across all groups
+        function getAllTracks() {
+            return document.querySelectorAll('.playlist li');
+        }
+
+        function loadTrack(track) {
+            if (!track) return;
+            
+            currentTrack = track;
+            audioPlayer.src = track.dataset.src;
+            audioPlayer.load();
+
+            // Update playing class
+            getAllTracks().forEach(t => t.classList.remove('playing'));
+            track.classList.add('playing');
+
+            // Update track info
+            currentTrackTitle.textContent = track.querySelector('span:last-child').textContent;
+            currentTrackGroup.textContent = track.dataset.group;
+
+            // Ensure the group is expanded
+            const group = track.closest('.playlist-group');
+            if (!group.classList.contains('expanded')) {
+                group.classList.add('expanded');
+                group.querySelector('.toggle-icon').textContent = '▼';
+            }
+        }
+
+        function playPause() {
+            if (!currentTrack) {
+                // Play first track if none is selected
+                const firstTrack = getAllTracks()[0];
+                if (firstTrack) loadTrack(firstTrack);
+            }
+
+            if (isPlaying) {
+                audioPlayer.pause();
+                playBtn.textContent = '▶';
+            } else {
+                audioPlayer.play();
+                playBtn.textContent = '⏸';
+            }
+            isPlaying = !isPlaying;
+        }
+
+        function nextTrack() {
+            if (!currentTrack) return;
+            
+            const tracks = getAllTracks();
+            const currentIndex = Array.from(tracks).indexOf(currentTrack);
+            const nextIndex = (currentIndex + 1) % tracks.length;
+            loadTrack(tracks[nextIndex]);
+            if (isPlaying) audioPlayer.play();
+        }
+
+        function prevTrack() {
+            if (!currentTrack) return;
+            
+            const tracks = getAllTracks();
+            const currentIndex = Array.from(tracks).indexOf(currentTrack);
+            const prevIndex = (currentIndex - 1 + tracks.length) % tracks.length;
+            loadTrack(tracks[prevIndex]);
+            if (isPlaying) audioPlayer.play();
+        }
+
+        // Event Listeners
+        playBtn.addEventListener('click', playPause);
+        nextBtn.addEventListener('click', nextTrack);
+        prevBtn.addEventListener('click', prevTrack);
+
+        document.querySelectorAll('.playlist li').forEach(track => {
+            track.addEventListener('click', () => {
+                loadTrack(track);
+                isPlaying = false;
+                playPause();
+            });
+        });
+
+        progressContainer.addEventListener('click', (e) => {
+            const width = progressContainer.clientWidth;
+            const clickX = e.offsetX;
+            const duration = audioPlayer.duration;
+            audioPlayer.currentTime = (clickX / width) * duration;
+        });
+
+        volumeSlider.addEventListener('input', (e) => {
+            audioPlayer.volume = e.target.value / 100;
+        });
+
+        // Audio player events
+        audioPlayer.addEventListener('timeupdate', () => {
+            const currentTime = audioPlayer.currentTime;
+            const duration = audioPlayer.duration;
+            const progressPercent = (currentTime / duration) * 100;
+            progressBar.style.width = `${progressPercent}%`;
+            
+            timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+        });
+
+        audioPlayer.addEventListener('ended', nextTrack);
+
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return '0:00';
+            
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = Math.floor(seconds % 60);
+            return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+    </script>
 </body>
 </html>
