@@ -1,0 +1,16 @@
+{
+    "Pop Hits": [
+      {
+        "title": "Blinding Lights",
+        "path": "songs/blinding-lights.mp3"
+      },
+      {
+        "title": "Savage Remix",
+        "path": "songs/savage-remix.mp3"
+      },
+      {
+        "title": "Rain on Me",
+        "path": "songs/rain-on-me.mp3"
+      }
+    ]
+  }
