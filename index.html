@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enhanced Audio Player</title>
+    <title>Audio Player with Grouped Playlists</title>
     <style>
         :root {
             --primary-color: #2563eb;
@@ -102,21 +102,21 @@
             border-radius: 8px;
         }
 
-        .play-btn, .prev-btn, .next-btn, .shuffle-btn {
+        .play-btn, .prev-btn, .next-btn {
             background: var(--primary-color);
             color: white;
             border: none;
-            padding: 12px 16px;
+            padding: 12px 24px;
             border-radius: 6px;
             cursor: pointer;
             transition: background-color 0.2s;
         }
 
-        .shuffle-btn.active {
-            background: var(--secondary-color);
+        .prev-btn, .next-btn {
+            padding: 12px 16px;
         }
 
-        .play-btn:hover, .prev-btn:hover, .next-btn:hover, .shuffle-btn:hover {
+        .play-btn:hover, .prev-btn:hover, .next-btn:hover {
             background: var(--secondary-color);
         }
 
@@ -236,10 +236,9 @@
         </div>
 
         <div class="controls">
-            <button class="shuffle-btn" title="Toggle Shuffle">🔀</button>
-            <button class="prev-btn" title="Previous">⏮</button>
-            <button class="play-btn" title="Play/Pause">▶</button>
-            <button class="next-btn" title="Next">⏭</button>
+            <button class="prev-btn">⏮</button>
+            <button class="play-btn">▶</button>
+            <button class="next-btn">⏭</button>
             
             <div class="time-display">0:00 / 0:00</div>
             
@@ -259,7 +258,6 @@
         const playBtn = document.querySelector('.play-btn');
         const prevBtn = document.querySelector('.prev-btn');
         const nextBtn = document.querySelector('.next-btn');
-        const shuffleBtn = document.querySelector('.shuffle-btn');
         const progressBar = document.getElementById('progress-bar');
         const progressContainer = document.getElementById('progress-container');
         const timeDisplay = document.querySelector('.time-display');
@@ -269,164 +267,82 @@
 
         let currentTrack = null;
         let isPlaying = false;
-        let isShuffleOn = false;
-        let playHistory = [];
-        let shuffledPlaylist = [];
 
         // Group toggle functionality
-        document.querySelectorAll('.group-header').forEach(header => {
-            header.addEventListener('click', () => {
-                const group = header.parentElement;
-                const toggleIcon = header.querySelector('.toggle-icon');
-                group.classList.toggle('expanded');
-                toggleIcon.textContent = group.classList.contains('expanded') ? '▼' : '▶';
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('music_data.json')
+                .then(response => response.json())
+                .then(data => {
+                    const container = document.getElementById('albums-container');
+                    Object.keys(data).forEach(albumTitle => {
+                        const album = data[albumTitle];
+                        const groupDiv = document.createElement('div');
+                        groupDiv.classList.add('playlist-group');
+
+                        const headerDiv = document.createElement('div');
+                        headerDiv.classList.add('group-header');
+                        headerDiv.innerHTML = `
+                            <div class="group-title">
+                                <span class="toggle-icon">▶</span>
+                                ${albumTitle}
+                            </div>
+                            <div class="group-meta">${album.length} tracks</div>
+                        `;
+                        headerDiv.addEventListener('click', function() {
+                            groupDiv.classList.toggle('expanded');
+                            const icon = headerDiv.querySelector('.toggle-icon');
+                            icon.textContent = groupDiv.classList.contains('expanded') ? '▼' : '▶';
+                        });
+
+                        const playlistUl = document.createElement('ul');
+                        playlistUl.classList.add('playlist');
+                        album.forEach(track => {
+                            const trackLi = document.createElement('li');
+                            trackLi.setAttribute('data-src', track.path);
+                            trackLi.setAttribute('data-group', albumTitle);
+                            trackLi.innerHTML = `
+                                <span class="play-icon">▶</span>
+                                <span>${track.title}</span>
+                            `;
+                            trackLi.addEventListener('click', function() {
+                                playTrack(track.path);
+                            });
+                            playlistUl.appendChild(trackLi);
+                        });
+
+                        groupDiv.appendChild(headerDiv);
+                        groupDiv.appendChild(playlistUl);
+                        container.appendChild(groupDiv);
+                    });
+                });
+
+            const audioPlayer = document.getElementById('audio-player');
+            const timeDisplay = document.getElementById('time-display');
+
+            audioPlayer.addEventListener('timeupdate', function() {
+                const currentTime = audioPlayer.currentTime;
+                const duration = audioPlayer.duration;
+                timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
             });
-        });
 
-        // Get all tracks across all groups
-        function getAllTracks() {
-            return document.querySelectorAll('.playlist li');
-        }
+            audioPlayer.addEventListener('ended', nextTrack);
 
-        function shuffleArray(array) {
-            let currentIndex = array.length;
-            let randomIndex;
-
-            while (currentIndex != 0) {
-                randomIndex = Math.floor(Math.random() * currentIndex);
-                currentIndex--;
-
-                [array[currentIndex], array[randomIndex]] = [
-                    array[randomIndex], array[currentIndex]
-                ];
-            }
-
-            return array;
-        }
-
-        function updateShuffledPlaylist() {
-            const tracks = Array.from(getAllTracks());
-            shuffledPlaylist = shuffleArray([...tracks]);
-        }
-
-        function toggleShuffle() {
-            isShuffleOn = !isShuffleOn;
-            shuffleBtn.classList.toggle('active');
-            if (isShuffleOn) {
-                updateShuffledPlaylist();
-            }
-        }
-
-        function loadTrack(track) {
-            if (!track) return;
-            
-            currentTrack = track;
-            audioPlayer.src = track.dataset.src;
-            audioPlayer.load();
-
-            // Update playing class
-            getAllTracks().forEach(t => t.classList.remove('playing'));
-            track.classList.add('playing');
-
-            // Update track info
-            currentTrackTitle.textContent = track.querySelector('span:last-child').textContent;
-            currentTrackGroup.textContent = track.dataset.group;
-
-            // Ensure the group is expanded
-            const group = track.closest('.playlist-group');
-            if (!group.classList.contains('expanded')) {
-                group.classList.add('expanded');
-                group.querySelector('.toggle-icon').textContent = '▼';
-            }
-
-            // Add to play history
-            playHistory.push(track);
-        }
-
-        function playPause() {
-            if (!currentTrack) {
-                // Play first track if none is selected
-                const firstTrack = getAllTracks()[0];
-                if (firstTrack) loadTrack(firstTrack);
-            }
-
-            if (isPlaying) {
-                audioPlayer.pause();
-                playBtn.textContent = '▶';
-            } else {
+            function playTrack(src) {
+                audioPlayer.src = src;
                 audioPlayer.play();
-                playBtn.textContent = '⏸';
             }
-            isPlaying = !isPlaying;
-        }
 
-        function getNextTrack() {
-            if (isShuffleOn) {
-                const currentIndex = shuffledPlaylist.indexOf(currentTrack);
-                return shuffledPlaylist[(currentIndex + 1) % shuffledPlaylist.length];
-            } else {
-                const tracks = getAllTracks();
-                const currentIndex = Array.from(tracks).indexOf(currentTrack);
-                return tracks[(currentIndex + 1) % tracks.length];
+            function nextTrack() {
+                // Implement logic to play the next track
             }
-        }
 
-        function getPrevTrack() {
-            if (playHistory.length > 1) {
-                playHistory.pop(); // Remove current track
-                return playHistory.pop(); // Get previous track
+            function formatTime(seconds) {
+                if (isNaN(seconds)) return '0:00';
+                
+                const minutes = Math.floor(seconds / 60);
+                const remainingSeconds = Math.floor(seconds % 60);
+                return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
             }
-            
-            const tracks = getAllTracks();
-            const currentIndex = Array.from(tracks).indexOf(currentTrack);
-            return tracks[(currentIndex - 1 + tracks.length) % tracks.length];
-        }
-
-        function nextTrack() {
-            if (!currentTrack) return;
-            loadTrack(getNextTrack());
-            if (isPlaying) audioPlayer.play();
-        }
-
-        function prevTrack() {
-            if (!currentTrack) return;
-            loadTrack(getPrevTrack());
-            if (isPlaying) audioPlayer.play();
-        }
-
-        // Event Listeners
-        playBtn.addEventListener('click', playPause);
-        nextBtn.addEventListener('click', nextTrack);
-        prevBtn.addEventListener('click', prevTrack);
-        shuffleBtn.addEventListener('click', toggleShuffle);
-
-        document.querySelectorAll('.playlist li').forEach(track => {
-            track.addEventListener('click', () => {
-                loadTrack(track);
-                isPlaying = false;
-                playPause();
-            });
-        });
-
-        progressContainer.addEventListener('click', (e) => {
-            const width = progressContainer.clientWidth;
-            const clickX = e.offsetX;
-            const duration = audioPlayer.duration;
-            audioPlayer.currentTime = (clickX / width) * duration;
-        });
-
-        volumeSlider.addEventListener('input', (e) => {
-            audioPlayer.volume = e.target.value / 100;
-        });
-
-        // Audio player events
-        audioPlayer.addEventListener('timeupdate', () => {
-            const currentTime = audioPlayer.currentTime;
-            const duration = audioPlayer.duration;
-            const progressPercent = (currentTime / duration) * 100;
-            progressBar.style.width = `${progressPercent}%`;
-            
-            timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
         });
 
         audioPlayer.addEventListener('ended', nextTrack);
