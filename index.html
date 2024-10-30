@@ -247,6 +247,34 @@ let albumGroups = new Map(); // Store tracks by album
 let currentTrackIndex = -1;
 let currentAlbum = null;
 
+if ('mediaSession' in navigator) {
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+        if (currentAlbum && currentTrackIndex > 0) {
+            loadTrack(currentTrackIndex - 1);
+            playTrack();
+        }
+    });
+    
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+        if (currentAlbum) {
+            const albumTracks = albumGroups.get(currentAlbum);
+            if (currentTrackIndex < albumTracks.length - 1) {
+                loadTrack(currentTrackIndex + 1);
+                playTrack();
+            }
+        }
+    });
+
+    // Update the media session metadata when loading tracks
+    function updateMediaSessionMetadata(track) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: track.title,
+            artist: track.group,
+            album: track.group
+        });
+    }
+}
+        
 // Shuffle functionality
 shuffleBtn.addEventListener('click', () => {
     isShuffled = !isShuffled;
@@ -460,7 +488,7 @@ function loadTrack(index) {
     audioPlayer.src = track.path;
     updateTrackInfo(track.title, track.group);
     
-    // Update media session metadata for mobile devices
+    // Add this media session metadata update
     if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({
             title: track.title,
@@ -479,6 +507,7 @@ function loadTrack(index) {
     });
 }
 
+        
 // Keep the remaining functions unchanged
 function playTrack() {
     audioPlayer.play();
