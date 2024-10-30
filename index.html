@@ -247,24 +247,67 @@ let albumGroups = new Map(); // Store tracks by album
 let currentTrackIndex = -1;
 let currentAlbum = null;
 
-if ('mediaSession' in navigator) {
-    navigator.mediaSession.setActionHandler('previoustrack', () => {
-        if (currentAlbum && currentTrackIndex > 0) {
-            loadTrack(currentTrackIndex - 1);
+function setupMediaSession() {
+    if ('mediaSession' in navigator) {
+        navigator.mediaSession.setActionHandler('play', () => {
             playTrack();
-        }
-    });
-    
-    navigator.mediaSession.setActionHandler('nexttrack', () => {
-        if (currentAlbum) {
-            const albumTracks = albumGroups.get(currentAlbum);
-            if (currentTrackIndex < albumTracks.length - 1) {
-                loadTrack(currentTrackIndex + 1);
+            updatePlaybackState('playing');
+        });
+        
+        navigator.mediaSession.setActionHandler('pause', () => {
+            pauseTrack();
+            updatePlaybackState('paused');
+        });
+        
+        navigator.mediaSession.setActionHandler('previoustrack', () => {
+            if (currentAlbum && currentTrackIndex > 0) {
+                loadTrack(currentTrackIndex - 1);
                 playTrack();
+                updatePlaybackState('playing');
             }
-        }
-    });
+        });
+        
+        navigator.mediaSession.setActionHandler('nexttrack', () => {
+            if (currentAlbum) {
+                const albumTracks = albumGroups.get(currentAlbum);
+                if (currentTrackIndex < albumTracks.length - 1) {
+                    loadTrack(currentTrackIndex + 1);
+                    playTrack();
+                    updatePlaybackState('playing');
+                }
+            }
+        });
 
+        navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+            const skipTime = details.seekOffset || 10;
+            audioPlayer.currentTime = Math.max(audioPlayer.currentTime - skipTime, 0);
+            updatePositionState();
+        });
+
+        navigator.mediaSession.setActionHandler('seekforward', (details) => {
+            const skipTime = details.seekOffset || 10;
+            audioPlayer.currentTime = Math.min(audioPlayer.currentTime + skipTime, audioPlayer.duration);
+            updatePositionState();
+        });
+    }
+}
+
+// 2. ADD these new helper functions after setupMediaSession():
+function updatePlaybackState(state) {
+    if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = state;
+    }
+}
+
+function updatePositionState() {
+    if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
+        navigator.mediaSession.setPositionState({
+            duration: audioPlayer.duration,
+            position: audioPlayer.currentTime,
+            playbackRate: audioPlayer.playbackRate
+        });
+    }
+}        
     // Update the media session metadata when loading tracks
     function updateMediaSessionMetadata(track) {
         navigator.mediaSession.metadata = new MediaMetadata({
@@ -488,16 +531,22 @@ function loadTrack(index) {
     audioPlayer.src = track.path;
     updateTrackInfo(track.title, track.group);
     
-    // Add this media session metadata update
     if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({
             title: track.title,
             artist: track.group,
-            album: track.group
+            album: track.group,
+            artwork: [
+                { src: '/api/placeholder/96/96', sizes: '96x96', type: 'image/png' },
+                { src: '/api/placeholder/128/128', sizes: '128x128', type: 'image/png' },
+                { src: '/api/placeholder/192/192', sizes: '192x192', type: 'image/png' },
+                { src: '/api/placeholder/256/256', sizes: '256x256', type: 'image/png' },
+                { src: '/api/placeholder/384/384', sizes: '384x384', type: 'image/png' },
+                { src: '/api/placeholder/512/512', sizes: '512x512', type: 'image/png' },
+            ]
         });
     }
     
-    // Update playing status in playlist
     document.querySelectorAll('.playlist li').forEach(li => {
         li.classList.remove('playing');
         const liIndex = parseInt(li.getAttribute('data-index'));
@@ -513,12 +562,14 @@ function playTrack() {
     audioPlayer.play();
     isPlaying = true;
     playBtn.textContent = '⏸';
+    updatePlaybackState('playing');
 }
 
 function pauseTrack() {
     audioPlayer.pause();
     isPlaying = false;
     playBtn.textContent = '▶';
+    updatePlaybackState('paused');
 }
 
 function updateTrackInfo(title, group) {
@@ -543,6 +594,7 @@ audioPlayer.addEventListener('timeupdate', () => {
     const progress = (audioPlayer.currentTime / audioPlayer.duration) * 100;
     progressBar.style.width = `${progress}%`;
     timeDisplay.textContent = `${formatTime(audioPlayer.currentTime)} / ${formatTime(audioPlayer.duration)}`;
+    updatePositionState();
 });
 
 volumeSlider.addEventListener('input', (e) => {
@@ -563,6 +615,10 @@ audioPlayer.addEventListener('ended', () => {
         }
     }
 });
+
+document.addEventListener('DOMContentLoaded', () => {
+    setupMediaSession();
+});        
     </script>
 </body>
 </html>
