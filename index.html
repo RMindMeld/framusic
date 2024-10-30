@@ -389,12 +389,85 @@ nextBtn.addEventListener('click', () => {
     }
 });
 
+document.addEventListener('keydown', (e) => {
+    // Handle keyboard shortcuts only if not typing in an input field
+    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+        switch (e.code) {
+            case 'Space':
+                e.preventDefault(); // Prevent page scroll
+                if (isPlaying) {
+                    pauseTrack();
+                } else {
+                    playTrack();
+                }
+                break;
+            case 'ArrowLeft':
+            case 'MediaTrackPrevious':
+                e.preventDefault();
+                if (currentAlbum && currentTrackIndex > 0) {
+                    loadTrack(currentTrackIndex - 1);
+                    playTrack();
+                }
+                break;
+            case 'ArrowRight':
+            case 'MediaTrackNext':
+                e.preventDefault();
+                if (currentAlbum) {
+                    const albumTracks = albumGroups.get(currentAlbum);
+                    if (currentTrackIndex < albumTracks.length - 1) {
+                        loadTrack(currentTrackIndex + 1);
+                        playTrack();
+                    }
+                }
+                break;
+        }
+    }
+});
+
+// Add media session controls for mobile devices
+if ('mediaSession' in navigator) {
+    navigator.mediaSession.setActionHandler('play', () => {
+        playTrack();
+    });
+    
+    navigator.mediaSession.setActionHandler('pause', () => {
+        pauseTrack();
+    });
+    
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+        if (currentAlbum && currentTrackIndex > 0) {
+            loadTrack(currentTrackIndex - 1);
+            playTrack();
+        }
+    });
+    
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+        if (currentAlbum) {
+            const albumTracks = albumGroups.get(currentAlbum);
+            if (currentTrackIndex < albumTracks.length - 1) {
+                loadTrack(currentTrackIndex + 1);
+                playTrack();
+            }
+        }
+    });
+}
+
+        
 function loadTrack(index) {
     currentTrackIndex = index;
     const albumTracks = albumGroups.get(currentAlbum);
     const track = albumTracks[index];
     audioPlayer.src = track.path;
     updateTrackInfo(track.title, track.group);
+    
+    // Update media session metadata for mobile devices
+    if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: track.title,
+            artist: track.group,
+            album: track.group
+        });
+    }
     
     // Update playing status in playlist
     document.querySelectorAll('.playlist li').forEach(li => {
