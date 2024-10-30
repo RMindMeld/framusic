@@ -3,6 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Add these meta tags for iOS background audio -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    
+    <!-- This is the crucial meta tag for background audio -->
+    <meta name="apple-mobile-web-app-title" content="Fernando no Ongaku">
+    
+    <!-- Add this for background audio in Safari -->
+    <meta name="apple-itunes-app" content="app-clip-bundle-id=com.yourdomain.app">
+    
     <title>Fernando no Ongaku</title>
     <style>
         /* Previous styles remain the same */
@@ -198,7 +208,11 @@
     <div class="player-container">
         <h2>Audio Player</h2>
         
-        <audio id="audio-player"></audio>
+        <audio id="audio-player" 
+    playsinline 
+    webkit-playsinline 
+    preload="auto"
+    x-webkit-airplay="allow"></audio>
 
         <div class="track-info">
             <span class="current-track-title">No track selected</span>
@@ -247,6 +261,21 @@ let albumGroups = new Map(); // Store tracks by album
 let currentTrackIndex = -1;
 let currentAlbum = null;
 
+        document.addEventListener('DOMContentLoaded', function() {
+        // Request wake lock to prevent sleep
+        if ('wakeLock' in navigator) {
+            navigator.wakeLock.request('screen');
+        }
+        
+        // Configure audio for background playback
+        const audioPlayer = document.getElementById('audio-player');
+        if (audioPlayer) {
+            audioPlayer.setAttribute('playsinline', '');
+            audioPlayer.setAttribute('webkit-playsinline', '');
+            audioPlayer.setAttribute('preload', 'auto');
+        }
+    });
+         
 function setupMediaSession() {
     if ('mediaSession' in navigator) {
         navigator.mediaSession.setActionHandler('play', () => {
