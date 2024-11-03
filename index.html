@@ -345,17 +345,21 @@
                         `;
 
                         trackLi.addEventListener('click', () => {
-                            const clickedIndex = parseInt(trackLi.getAttribute('data-index'));
-                            currentAlbum = track.group;
+                            const globalIndex = parseInt(trackLi.getAttribute('data-index'));
+                            const clickedTrack = tracks[globalIndex];
+                            currentAlbum = clickedTrack.group;
                             const albumTracks = albumGroups.get(currentAlbum);
-                            currentTrackIndex = albumIndex;
+                            
+                            // Find the correct index in the current album tracks array
+                            currentTrackIndex = albumTracks.findIndex(track => track.path === clickedTrack.path);
                             loadTrack(currentTrackIndex);
                             playTrack();
                         });
 
                         playlistUl.appendChild(trackLi);
                     });
-
+   
+                    
                     groupDiv.appendChild(headerDiv);
                     groupDiv.appendChild(playlistUl);
                     container.appendChild(groupDiv);
@@ -370,15 +374,16 @@
             updateTrackInfo(track.title, track.group);
             updateMediaMetadata(track);
             
+            // Update playing status for all tracks
             document.querySelectorAll('.playlist li').forEach(li => {
                 li.classList.remove('playing');
-                const liIndex = parseInt(li.getAttribute('data-index'));
-                if (tracks[liIndex].path === track.path) {
+                const trackPath = tracks[parseInt(li.getAttribute('data-index'))].path;
+                if (trackPath === track.path) {
                     li.classList.add('playing');
                 }
             });
-        }
-
+        }    
+     
         function playTrack() {
             const playPromise = audioPlayer.play();
             if (playPromise !== undefined) {
@@ -440,39 +445,44 @@
                 }
             }
         });
-
+        
         shuffleBtn.addEventListener('click', () => {
             isShuffled = !isShuffled;
             shuffleBtn.classList.toggle('active');
             
             if (currentAlbum) {
                 const albumTracks = albumGroups.get(currentAlbum);
+                const currentTrackPath = currentTrackIndex !== -1 ? albumTracks[currentTrackIndex].path : null;
+                
                 if (isShuffled) {
+                    // Create shuffled array while preserving current track's position
                     const shuffledAlbumTracks = [...albumTracks]
-                        .map(value => ({ value, sort: Math.random() }))
+                        .map((value, index) => ({ value, sort: Math.random() }))
                         .sort((a, b) => a.sort - b.sort)
                         .map(({ value }) => value);
                     
                     albumGroups.set(currentAlbum, shuffledAlbumTracks);
                     
-                    if (currentTrackIndex !== -1) {
-                        const currentTrack = tracks[currentTrackIndex];
+                    // Update currentTrackIndex to match the new position
+                    if (currentTrackPath) {
                         currentTrackIndex = shuffledAlbumTracks.findIndex(track => 
-                            track.path === currentTrack.path);
+                            track.path === currentTrackPath);
                     }
                 } else {
+                    // Restore original order
                     const originalAlbumTracks = tracks.filter(track => track.group === currentAlbum);
                     albumGroups.set(currentAlbum, originalAlbumTracks);
                     
-                    if (currentTrackIndex !== -1) {
-                        const currentTrack = albumGroups.get(currentAlbum)[currentTrackIndex];
+                    // Update currentTrackIndex to match the original position
+                    if (currentTrackPath) {
                         currentTrackIndex = originalAlbumTracks.findIndex(track => 
-                            track.path === currentTrack.path);
+                            track.path === currentTrackPath);
                     }
                 }
             }
         });
-
+     
+    
         progressContainer.addEventListener('click', (e) => {
             const clickPosition = e.offsetX / progressContainer.offsetWidth;
             audioPlayer.currentTime = clickPosition * audioPlayer.duration;
